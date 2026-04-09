@@ -20,8 +20,8 @@ Fill in the three env vars after clicking — `ASK_SLACK_API_URL`, `ASK_SLACK_AP
 
 #### Docker (no Node.js needed)
 
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Docker-0098FF?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A20-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
-[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Docker-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A20-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Docker-0098FF?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Docker-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
 
 ---
 
@@ -148,7 +148,7 @@ To find your `SLACK_USER_ID`: click your profile in Slack → **View profile** �
         "-e", "ASK_SLACK_API_URL",
         "-e", "ASK_SLACK_API_KEY",
         "-e", "SLACK_USER_ID",
-        "node:20-alpine", "npx", "-y", "ask-slack-mcp"
+        "node:24-alpine", "npx", "-y", "ask-slack-mcp"
       ],
       "env": {
         "ASK_SLACK_API_URL": "https://your-server-url",

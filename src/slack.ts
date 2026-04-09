@@ -4,8 +4,10 @@ import { App } from "@slack/bolt";
 interface GenericMessageEvent {
   type: "message";
   subtype?: string;
+  bot_id?: string;
   channel: string;
   text?: string;
+  thread_ts?: string;
   ts: string;
   user?: string;
 }
@@ -28,18 +30,40 @@ const boltApp = new App({
 boltApp.message(async ({ message }) => {
   const msg = message as GenericMessageEvent;
 
-  // Handle only direct messages sent by user (not by bot)
-  if (msg.subtype !== undefined) return;
+  console.error("[Bolt] Received message:", {
+    channel: msg.channel,
+    thread_ts: msg.thread_ts,
+    subtype: msg.subtype,
+    bot_id: msg.bot_id,
+    text: msg.text,
+    pendingKeys: [...pendingQuestions.keys()],
+  });
+
+  // Ignore bot messages (including own)
+  if (msg.bot_id || msg.subtype === "bot_message") {
+    console.error("[Bolt] Ignoring bot message, skipping.");
+    return;
+  }
+
+  // Ignore other subtypes (e.g. message_changed)
+  if (msg.subtype !== undefined) {
+    console.error("[Bolt] Ignoring message subtype:", msg.subtype);
+    return;
+  }
 
   const resolver = pendingQuestions.get(msg.channel);
   if (resolver && msg.text) {
+    console.error("[Bolt] Resolver found for channel:", msg.channel, "— resolving with answer.");
     resolver(msg.text);
     pendingQuestions.delete(msg.channel);
+  } else {
+    console.error("[Bolt] No pending question for channel:", msg.channel);
   }
 });
 
 export async function startBoltApp(): Promise<void> {
   await boltApp.start();
+  console.error("[Bolt] Socket Mode app started successfully.");
 }
 
 export async function sendQuestionAndWait(question: string): Promise<string> {
@@ -60,8 +84,10 @@ export async function sendQuestionAndWait(question: string): Promise<string> {
   });
 
   // Wait for response (Promise with timeout)
+  console.error(`[Slack] Waiting for reply in channel ${channelId} (timeout: ${TIMEOUT_MS / 1000}s)`);
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
+      console.error(`[Slack] TIMEOUT — no reply received for channel ${channelId}`);
       pendingQuestions.delete(channelId);
       reject(
         new Error(

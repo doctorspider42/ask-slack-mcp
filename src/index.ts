@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 import "dotenv/config";
+import { createRequire } from "module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { sendQuestionAndWait, startBoltApp } from "./slack.js";
 
+const require = createRequire(import.meta.url);
+const { version: VERSION } = require("../package.json") as { version: string };
+
+console.error(`[ask-slack-mcp] Starting version ${VERSION}`);
+
 const server = new McpServer({
   name: "ask-user-in-slack",
-  version: "1.0.1",
+  version: VERSION,
 });
 
 server.tool(

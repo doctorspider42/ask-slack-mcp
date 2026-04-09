@@ -36,7 +36,7 @@
         "icon": "$(comment-discussion)",
         "toolReferenceName": "ask_slack",
         "canBeReferencedInPrompt": true,
-        "modelDescription": "Ask the user a question. Shows a local UI prompt immediately; if the user does not respond within a configurable timeout (default 60 s), the question is forwarded to their Slack DM. Use this tool when you need human input, clarification, or approval.",
+        "modelDescription": "Ask the user a question. Shows a local UI prompt immediately; if the user does not respond within a configurable timeout (default 60 s), the question is forwarded to their Slack DM. Supports multiple-choice options (single or multi-select) just like vscode_askQuestions. Use this tool when you need human input, clarification, or approval.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -47,6 +47,27 @@
             "context": {
               "type": "string",
               "description": "Optional context to provide with the question"
+            },
+            "options": {
+              "type": "array",
+              "description": "Optional list of selectable answers to show as buttons",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string", "description": "Display label for the option" },
+                  "description": { "type": "string", "description": "Optional secondary text" },
+                  "recommended": { "type": "boolean", "description": "Mark this option as the recommended default" }
+                },
+                "required": ["label"]
+              }
+            },
+            "multiSelect": {
+              "type": "boolean",
+              "description": "When true, the user can select multiple options. Defaults to false (single-select)."
+            },
+            "allowFreeformInput": {
+              "type": "boolean",
+              "description": "When true, the user can type a custom answer in addition to selecting options. Defaults to true when no options are provided."
             }
           },
           "required": [

@@ -1,9 +1,18 @@
 import * as vscode from "vscode";
 import { AskSlackConfig, askViaSlackApi } from "./slackApiClient";
 
+interface QuestionOption {
+  label: string;
+  description?: string;
+  recommended?: boolean;
+}
+
 interface AskUserInput {
   question: string;
   context?: string;
+  options?: QuestionOption[];
+  multiSelect?: boolean;
+  allowFreeformInput?: boolean;
 }
 
 interface IQuestionAnswer {
@@ -48,7 +57,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     options: vscode.LanguageModelToolInvocationOptions<AskUserInput>,
     token: vscode.CancellationToken,
   ): Promise<vscode.LanguageModelToolResult> {
-    const { question, context } = options.input;
+    const { question, context, options: questionOptions, multiSelect, allowFreeformInput } = options.input;
     const config = await getConfig(this._secrets);
     const slackConfigured = !!(
       config.apiUrl &&
@@ -59,6 +68,9 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     const answer = await this.askWithFallback(
       question,
       context,
+      questionOptions,
+      multiSelect,
+      allowFreeformInput,
       config,
       slackConfigured,
       config.awayMode,
@@ -79,6 +91,9 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
   private askWithFallback(
     question: string,
     context: string | undefined,
+    options: QuestionOption[] | undefined,
+    multiSelect: boolean | undefined,
+    allowFreeformInput: boolean | undefined,
     config: AskSlackConfig,
     slackConfigured: boolean,
     awayMode: boolean,
@@ -142,7 +157,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
         return;
       }
 
-      // Build the question text with context
+      // Build the question carousel input
       const questionText = context
         ? `Context: ${context}\n\n${question}`
         : question;
@@ -150,6 +165,19 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
       const timeoutNote = slackConfigured
         ? `\n\n_If no answer within ${config.timeoutSeconds}s, this will be sent to Slack._`
         : "";
+
+      // Map options to the format vscode_askQuestions expects
+      const questionOptions = options?.map((o, i) => ({
+        id: String(i),
+        label: o.label,
+        description: o.description,
+        recommended: o.recommended,
+      }));
+
+      // Determine question type: multiSelect > singleSelect > text
+      // allowFreeformInput defaults to true when no options are provided
+      const hasOptions = questionOptions && questionOptions.length > 0;
+      const freeform = allowFreeformInput ?? !hasOptions;
 
       // Show inline question carousel (same UI as built-in vscode_askQuestions)
       Promise.resolve(
@@ -161,7 +189,9 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
                 {
                   header: "Question from Agent",
                   question: questionText + timeoutNote,
-                  allowFreeformInput: true,
+                  options: questionOptions,
+                  multiSelect: multiSelect ?? false,
+                  allowFreeformInput: freeform,
                 },
               ],
             },

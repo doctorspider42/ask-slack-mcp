@@ -36,6 +36,20 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Authenticated health check
+  if (req.method === "GET" && req.url === "/health/auth") {
+    const providedKey =
+      req.headers["x-api-key"] ??
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
+
+    if (!providedKey || providedKey !== API_KEY) {
+      sendJson(res, 401, { error: "Invalid or missing API key" });
+      return;
+    }
+    sendJson(res, 200, { status: "ok", version: VERSION });
+    return;
+  }
+
   // Main endpoint
   if (req.method === "POST" && req.url === "/api/ask") {
     // Validate API key

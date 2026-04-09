@@ -45,6 +45,16 @@ function resolvePending(channelId: string, answer: string): boolean {
   console.error("[Bolt] Resolving pending question for channel:", channelId, "with:", answer);
   pending.resolve(answer);
   pendingQuestions.delete(channelId);
+
+  // Confirm to the user on Slack that the answer was received
+  web.chat.postMessage({
+    channel: channelId,
+    text: `✅ Your answer: ${answer}`,
+    mrkdwn: true,
+  }).catch((err) => {
+    console.error("[Bolt] Failed to send confirmation message:", err);
+  });
+
   return true;
 }
 

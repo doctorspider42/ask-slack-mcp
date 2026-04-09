@@ -28,6 +28,12 @@ Agent asks question
    - **API Key** — the shared secret you set on the server (`ASK_SLACK_API_KEY`)
    - **Slack User ID** — your personal Slack member ID (profile → `⋯` → Copy member ID)
 5. **Test connection** — click "Test Connection" in the settings panel
+6. Disable the built-in `vscode_askQuestions` tool to avoid confusion
+7. (Optional) add this to your `.github/copilot-instructions.md`:
+
+```
+Add Always use #ask_slack tool to ask user questions
+```
 
 If you leave the connection fields empty, the tool works in **local-only mode** — just the inline prompt, no Slack fallback.
 

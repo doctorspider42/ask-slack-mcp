@@ -2,7 +2,7 @@
   "name": "ask-slack-vscode",
   "displayName": "Ask Slack",
   "description": "Ask user questions with local UI and Slack DM fallback for Copilot Chat agents",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "publisher": "doctorspider",
   "license": "MIT",
   "repository": {
@@ -36,7 +36,7 @@
         "icon": "$(comment-discussion)",
         "toolReferenceName": "ask_slack",
         "canBeReferencedInPrompt": true,
-        "modelDescription": "Ask the user a question. Shows a local UI prompt immediately; if the user does not respond within a configurable timeout (default 60 s), the question is forwarded to their Slack DM. Supports multiple-choice options (single or multi-select) just like vscode_askQuestions. Use this tool when you need human input, clarification, or approval.",
+        "modelDescription": "Use this tool to ask the user a small number of clarifying questions before proceeding. Provide the questions array with concise headers and prompts. Use options for fixed choices, set multiSelect when multiple selections are allowed. Users can always provide a freeform text answer alongside options unless you set allowFreeformInput to false.",
         "inputSchema": {
           "type": "object",
           "properties": {

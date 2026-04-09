@@ -1,6 +1,6 @@
 {
   "name": "ask-slack-mcp-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "HTTP API server for ask-slack-mcp — Slack bridge for human-in-the-loop",
   "type": "module",
   "main": "dist/server.js",

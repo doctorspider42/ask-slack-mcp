@@ -92,14 +92,32 @@ export class SettingsPanel {
       return;
     }
 
+    const apiKey = (await this._secrets.get(API_KEY_SECRET)) ?? "";
+    if (!apiKey) {
+      this._panel.webview.postMessage({
+        type: "testResult",
+        success: false,
+        message: "API Key is not configured",
+      });
+      return;
+    }
+
     try {
-      const resp = await fetch(`${apiUrl}/health`);
+      const resp = await fetch(`${apiUrl}/health/auth`, {
+        headers: { "x-api-key": apiKey },
+      });
       if (resp.ok) {
         const data = (await resp.json()) as { status: string; version: string };
         this._panel.webview.postMessage({
           type: "testResult",
           success: true,
           message: `Connected! Server v${data.version} — status: ${data.status}`,
+        });
+      } else if (resp.status === 401) {
+        this._panel.webview.postMessage({
+          type: "testResult",
+          success: false,
+          message: "Authentication failed — invalid API key",
         });
       } else {
         this._panel.webview.postMessage({

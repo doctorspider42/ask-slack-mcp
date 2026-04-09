@@ -18,27 +18,6 @@ Agent asks question
         ← first answer wins ←
 ```
 
-### Away Mode
-
-Toggle **Away Mode** and questions skip the local prompt entirely — they go straight to Slack. Perfect for when you step away but want your agents to keep working.
-
-## Features
-
-- **Inline question UI** — same native carousel as `vscode_askQuestions`, with options, multi-select, and freeform input
-- **Slack DM fallback** — unanswered questions are forwarded to Slack with interactive buttons/checkboxes (Block Kit)
-- **Away Mode** — send everything to Slack immediately, no local prompt
-- **Numbered reply fallback** — reply with `1` or `1, 3` in Slack instead of clicking buttons
-- **Secure** — API key stored in OS keychain (Windows Credential Manager / macOS Keychain)
-- **Settings GUI** — configure everything from a webview panel (`Ask Slack: Open Settings`)
-
-## Requirements
-
-This extension needs a running **ask-slack-mcp server** to forward questions to Slack.
-
-👉 **[Server setup instructions on GitHub](https://github.com/doctorspider42/ask-slack-mcp#server)**
-
-The server holds the Slack WebSocket connection and exposes an HTTP API. You deploy it once; the extension connects to it.
-
 ## Setup
 
 1. **Deploy the server** — follow the [server setup guide](https://github.com/doctorspider42/ask-slack-mcp#server)
@@ -76,6 +55,27 @@ Use #ask_slack with question "Which approach?" and options ["Refactor", "Rewrite
 | `askSlack.awayMode` | `false` | Skip local prompt, send straight to Slack |
 
 API key is stored securely in OS keychain — configure it via the settings panel.
+
+### Away Mode
+
+Toggle **Away Mode** and questions skip the local prompt entirely — they go straight to Slack. Perfect for when you step away but want your agents to keep working.
+
+## Features
+
+- **Inline question UI** — same native carousel as `vscode_askQuestions`, with options, multi-select, and freeform input
+- **Slack DM fallback** — unanswered questions are forwarded to Slack with interactive buttons/checkboxes (Block Kit)
+- **Away Mode** — send everything to Slack immediately, no local prompt
+- **Numbered reply fallback** — reply with `1` or `1, 3` in Slack instead of clicking buttons
+- **Secure** — API key stored in OS keychain (Windows Credential Manager / macOS Keychain)
+- **Settings GUI** — configure everything from a webview panel (`Ask Slack: Open Settings`)
+
+## Requirements
+
+This extension needs a running **ask-slack-mcp server** to forward questions to Slack.
+
+👉 **[Server setup instructions on GitHub](https://github.com/doctorspider42/ask-slack-mcp#server)**
+
+The server holds the Slack WebSocket connection and exposes an HTTP API. You deploy it once; the extension connects to it.
 
 ## Tool Parameters
 

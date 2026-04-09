@@ -2,12 +2,13 @@
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) tool that enables **human-in-the-loop** interactions via Slack DM. AI agents can pause and ask a real human a question, then wait for their reply — directly in Slack.
 
-This repository contains two independent npm packages:
+This repository contains three independent packages:
 
-| Folder | npm package | Description |
-|--------|-------------|-------------|
-| [`client/`](client/) | `ask-slack-mcp` | MCP stdio client — runs on each user's machine |
-| [`server/`](server/) | `ask-slack-mcp-server` | HTTP API server — Slack bridge (deploy once) |
+| Folder | Package | Description |
+|--------|---------|-------------|
+| [`client/`](client/) | `ask-slack-mcp` (npm) | MCP stdio client — runs on each user's machine |
+| [`server/`](server/) | `ask-slack-mcp-server` (npm) | HTTP API server — Slack bridge (deploy once) |
+| [`extension/`](extension/) | `ask-slack-vscode` (VS Code) | VS Code extension — local UI prompt with Slack fallback |
 
 ## Quick install (client)
 
@@ -34,15 +35,17 @@ Fill in the three env vars after clicking — `ASK_SLACK_API_URL`, `ASK_SLACK_AP
 │  Exposes HTTP API on :3000                   │
 └──────────────────┬──────────────────────────┘
                    │ HTTPS + API key
-        ┌──────────┴──────────┐
-        ▼                     ▼
-  ┌───────────┐         ┌───────────┐
-  │ client/   │         │ client/   │
-  │ MCP User A│         │ MCP User B│
-  └───────────┘         └───────────┘
+        ┌──────────┼──────────────────┐
+        ▼          ▼                  ▼
+  ┌───────────┐ ┌───────────┐  ┌──────────────┐
+  │ client/   │ │ client/   │  │ extension/   │
+  │ MCP User A│ │ MCP User B│  │ VS Code ext  │
+  └───────────┘ └───────────┘  └──────────────┘
 ```
 
-One API server holds a single Slack WebSocket connection. Each MCP client sends its `SLACK_USER_ID` with every request, so questions are always delivered to the right person.
+One API server holds a single Slack WebSocket connection. Each client (MCP or VS Code extension) sends its `SLACK_USER_ID` with every request, so questions are always delivered to the right person.
+
+The **VS Code extension** is standalone — it talks directly to the server and does **not** use the MCP client. It provides a native UI prompt in VS Code with an automatic Slack fallback after a configurable timeout.
 
 ---
 
@@ -180,6 +183,57 @@ To find your `SLACK_USER_ID`: click your profile in Slack → **View profile** �
 
 ---
 
+## VS Code Extension
+
+The extension registers a native Copilot Chat tool (`#ask_slack`) that shows a **local InputBox** immediately when the agent asks a question. If you don't respond within the timeout, the question is forwarded to Slack DM. The first answer (local or Slack) wins.
+
+**Flow:**
+1. Agent calls `#ask_slack` → InputBox appears with live countdown
+2. You answer locally → instant response, no Slack involved
+3. Timeout expires (default 60 s) → question sent to Slack, InputBox stays open
+4. First answer wins — local typing or Slack reply
+
+The extension is **standalone** — it calls the server HTTP API directly without the MCP client.
+
+### Install from VSIX (development)
+
+```bash
+cd extension
+npm install
+npm run compile
+npx @vscode/vsce package
+code --install-extension ask-slack-vscode-0.1.0.vsix
+```
+
+### Install from Marketplace (coming soon)
+
+Once published, install directly from the VS Code Extensions view by searching for **Ask Slack**.
+
+<!-- [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Extension-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=doctorspider42.ask-slack-vscode) -->
+
+### Extension settings
+
+Configure in VS Code Settings or `settings.json`:
+
+| Setting | Default | Description |
+|---|---|---|
+| `askSlack.timeoutSeconds` | `60` | Seconds before Slack fallback |
+| `askSlack.apiUrl` | `""` | Server URL (e.g. `http://localhost:3000`) |
+| `askSlack.apiKey` | `""` | API key for the server |
+| `askSlack.slackUserId` | `""` | Your Slack user ID |
+
+If `apiUrl`, `apiKey`, or `slackUserId` are empty, the tool works in **local-only mode** — no Slack fallback, just the InputBox.
+
+### Usage in Copilot Chat
+
+Reference the tool in prompts or instructions:
+
+```
+If you need to ask the user a question, use #ask_slack
+```
+
+---
+
 ## Tool reference
 
 ### `ask_user`
@@ -195,17 +249,18 @@ Ask the configured Slack user a question and wait for their reply.
 
 ---
 
-## All environment variables
+## All environment variables / settings
 
 | Variable | Where | Description |
 |---|---|---|
-| `ASK_SLACK_API_URL` | client | URL of the API server |
-| `ASK_SLACK_API_KEY` | server + client | Shared secret for API authentication |
-| `SLACK_USER_ID` | client | Your Slack user ID — each user sets their own |
+| `ASK_SLACK_API_URL` | client, extension | URL of the API server |
+| `ASK_SLACK_API_KEY` | server, client, extension | Shared secret for API authentication |
+| `SLACK_USER_ID` | client, extension | Your Slack user ID — each user sets their own |
 | `SLACK_BOT_TOKEN` | server | Bot User OAuth Token (`xoxb-...`) |
 | `SLACK_APP_TOKEN` | server | App-Level Token (`xapp-...`) |
 | `SLACK_SIGNING_SECRET` | server | Slack app signing secret |
 | `PORT` | server | HTTP port (default: `3000`) |
+| `askSlack.timeoutSeconds` | extension | Seconds before Slack fallback (default: `60`) |
 
 ## License
 

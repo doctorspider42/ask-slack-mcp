@@ -1,0 +1,102 @@
+{
+  "name": "ask-slack-vscode",
+  "displayName": "Ask Slack",
+  "description": "Ask user questions with local UI and Slack DM fallback for Copilot Chat agents",
+  "version": "0.1.0",
+  "publisher": "doctorspider42",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doctorspider42/ask-slack-mcp.git",
+    "directory": "extension"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "activationEvents": [
+    "onLanguageModelTool:askSlack_askUser"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languageModelTools": [
+      {
+        "name": "askSlack_askUser",
+        "tags": [
+          "ask",
+          "user",
+          "question",
+          "slack",
+          "human-in-the-loop"
+        ],
+        "displayName": "Ask User (with Slack fallback)",
+        "icon": "$(comment-discussion)",
+        "toolReferenceName": "ask_slack",
+        "canBeReferencedInPrompt": true,
+        "modelDescription": "Ask the user a question. Shows a local UI prompt immediately; if the user does not respond within a configurable timeout (default 60 s), the question is forwarded to their Slack DM. Use this tool when you need human input, clarification, or approval.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "description": "The question to ask the user"
+            },
+            "context": {
+              "type": "string",
+              "description": "Optional context to provide with the question"
+            }
+          },
+          "required": [
+            "question"
+          ]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Ask Slack",
+      "properties": {
+        "askSlack.awayMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, questions are sent directly to Slack without waiting for a local answer. The timeout setting is preserved and restored automatically when away mode is turned off."
+        },
+        "askSlack.timeoutSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "description": "Seconds to wait for a local answer before sending the question to Slack"
+        },
+        "askSlack.apiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL of the ask-slack-mcp HTTP server (e.g. http://localhost:3000)"
+        },
+        "askSlack.slackUserId": {
+          "type": "string",
+          "default": "",
+          "description": "Slack user ID to send DMs to"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "askSlack.openSettings",
+        "title": "Ask Slack: Open Settings",
+        "icon": "$(gear)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.0",
+    "@types/node": "^22.14.0",
+    "typescript": "^5.8.3"
+  }
+}

@@ -7,6 +7,7 @@ Going to the bathroom and worried your AI agent will be stuck waiting for you wi
 ## How it works
 
 `#ask_slack` is a Copilot Chat tool that shows a **native inline prompt** when the agent needs your input. If you don't answer within the timeout, the question is automatically forwarded to your **Slack DM**. The first answer wins — whether you type it in VS Code or tap it on your phone.
+The UI is based on the original `vscode_askQuestions` carousel, so it supports options, multi-select, and freeform input. The Slack fallback uses interactive Block Kit messages with buttons and checkboxes.
 
 ```
 Agent asks question

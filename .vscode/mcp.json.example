@@ -1,0 +1,17 @@
+{
+	"servers": {
+		"ask-slack-local": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"client/dist/index.js"
+			],
+			"env": {
+				"ASK_SLACK_API_URL": "http://localhost:3000",
+				"ASK_SLACK_API_KEY": "",
+				"SLACK_USER_ID": ""
+			}
+		}
+	},
+	"inputs": []
+}

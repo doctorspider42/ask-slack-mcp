@@ -1,7 +1,7 @@
 {
   "name": "ask-slack-mcp",
-  "version": "1.0.2",
-  "description": "MCP server — human-in-the-loop interactions",
+  "version": "2.0.0",
+  "description": "MCP client for ask-slack — human-in-the-loop via Slack DM",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -9,8 +9,7 @@
   },
   "files": [
     "dist",
-    "README.md",
-    ".env.example"
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -30,7 +29,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/doctorspider42/ask-slack-mcp.git"
+    "url": "https://github.com/doctorspider42/ask-slack-mcp.git",
+    "directory": "client"
   },
   "homepage": "https://github.com/doctorspider42/ask-slack-mcp#readme",
   "bugs": {
@@ -41,14 +41,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "@slack/bolt": "^4.4.0",
-    "@slack/web-api": "^7.8.0",
     "dotenv": "^16.4.7",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   }
 }

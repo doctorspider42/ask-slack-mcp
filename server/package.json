@@ -1,0 +1,52 @@
+{
+  "name": "ask-slack-mcp-server",
+  "version": "2.0.0",
+  "description": "HTTP API server for ask-slack-mcp — Slack bridge for human-in-the-loop",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "ask-slack-mcp-server": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "start": "node dist/server.js",
+    "dev": "tsc --watch",
+    "docker:build": "docker build -t ask-slack-mcp-server .",
+    "docker:run": "docker run --env-file .env -p 3000:3000 ask-slack-mcp-server"
+  },
+  "keywords": [
+    "slack",
+    "human-in-the-loop",
+    "api-server",
+    "ai",
+    "agent"
+  ],
+  "author": "doctorspider42",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doctorspider42/ask-slack-mcp.git",
+    "directory": "server"
+  },
+  "homepage": "https://github.com/doctorspider42/ask-slack-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/doctorspider42/ask-slack-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.4.0",
+    "@slack/web-api": "^7.8.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "^5.8.3"
+  }
+}

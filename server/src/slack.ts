@@ -13,6 +13,7 @@ interface GenericMessageEvent {
 }
 
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const STARTUP_DELAY_MS = 6000; // Wait for stale Slack connections to expire
 
 // Map: channelId -> resolver of pending Promise
 const pendingQuestions = new Map<string, (answer: string) => void>();
@@ -22,7 +23,7 @@ const web = new WebClient(process.env.SLACK_BOT_TOKEN);
 const boltApp = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET ?? "",
-  socketMode: true, // Socket Mode — nie wymaga publicznego URL
+  socketMode: true,
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
@@ -62,18 +63,32 @@ boltApp.message(async ({ message }) => {
 });
 
 export async function startBoltApp(): Promise<void> {
+  // Wait for stale Slack connections to expire (prevents event splitting)
+  console.error(`[Bolt] Waiting ${STARTUP_DELAY_MS / 1000}s for stale connections to expire...`);
+  await new Promise((r) => setTimeout(r, STARTUP_DELAY_MS));
+
   await boltApp.start();
   console.error("[Bolt] Socket Mode app started successfully.");
 }
 
-export async function sendQuestionAndWait(question: string): Promise<string> {
-  const slackUserId = process.env.SLACK_USER_ID;
-  if (!slackUserId) {
-    throw new Error("Missing SLACK_USER_ID environment variable");
+export async function stopBoltApp(): Promise<void> {
+  await boltApp.stop();
+  console.error("[Bolt] Socket Mode app stopped.");
+}
+
+export async function sendQuestionAndWait(
+  question: string,
+  slackUserId?: string,
+): Promise<string> {
+  const userId = slackUserId ?? process.env.SLACK_USER_ID;
+  if (!userId) {
+    throw new Error(
+      "Missing slack_user_id parameter and SLACK_USER_ID environment variable",
+    );
   }
 
   // Open DM channel with user
-  const dmResult = await web.conversations.open({ users: slackUserId });
+  const dmResult = await web.conversations.open({ users: userId });
   const channelId = (dmResult.channel as { id: string }).id;
 
   // Send message
@@ -84,15 +99,17 @@ export async function sendQuestionAndWait(question: string): Promise<string> {
   });
 
   // Wait for response (Promise with timeout)
-  console.error(`[Slack] Waiting for reply in channel ${channelId} (timeout: ${TIMEOUT_MS / 1000}s)`);
+  console.error(
+    `[Slack] Waiting for reply in channel ${channelId} (timeout: ${TIMEOUT_MS / 1000}s)`,
+  );
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
-      console.error(`[Slack] TIMEOUT — no reply received for channel ${channelId}`);
+      console.error(
+        `[Slack] TIMEOUT — no reply received for channel ${channelId}`,
+      );
       pendingQuestions.delete(channelId);
       reject(
-        new Error(
-          "Timeout — user did not respond within 5 minutes"
-        )
+        new Error("Timeout — user did not respond within 5 minutes"),
       );
     }, TIMEOUT_MS);
 

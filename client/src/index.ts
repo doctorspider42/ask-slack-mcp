@@ -4,12 +4,15 @@ import { createRequire } from "module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { sendQuestionAndWait, startBoltApp } from "./slack.js";
+import { getApiConfig } from "./config.js";
+import { askViaApi } from "./api-client.js";
 
 const require = createRequire(import.meta.url);
 const { version: VERSION } = require("../package.json") as { version: string };
 
+const apiConfig = getApiConfig();
 console.error(`[ask-slack-mcp] Starting version ${VERSION}`);
+console.error(`[ask-slack-mcp] API URL: ${apiConfig.apiUrl}`);
 
 const server = new McpServer({
   name: "ask-user-in-slack",
@@ -18,7 +21,7 @@ const server = new McpServer({
 
 server.tool(
   "ask_user",
-  "Ask the user a question and wait for their response",
+  "Ask a user a question via Slack DM and wait for their response",
   {
     question: z.string().describe("The question to ask"),
     context: z
@@ -27,19 +30,10 @@ server.tool(
       .describe("Optional context for the question"),
   },
   async ({ question, context }) => {
-    const fullMessage = context
-      ? `*Context:* ${context}\n\n*Question:* ${question}`
-      : `*Question:* ${question}`;
-
-    const answer = await sendQuestionAndWait(fullMessage);
-
-    return {
-      content: [{ type: "text", text: answer }],
-    };
-  }
+    const answer = await askViaApi(apiConfig, question, context);
+    return { content: [{ type: "text", text: answer }] };
+  },
 );
-
-await startBoltApp();
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

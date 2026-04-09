@@ -135,7 +135,13 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
           "$(sync~spin) Question sent to Slack, waiting for reply...",
         );
 
-        slackPending = askViaSlackApi(config, question, context);
+        // Convert QuestionOptions to AskSlackOptions (drop `recommended`)
+        const slackOptions = options?.map((o) => ({
+          label: o.label,
+          description: o.description,
+        }));
+
+        slackPending = askViaSlackApi(config, question, context, slackOptions, multiSelect);
         slackPending
           .then((answer) => finish(answer, "slack"))
           .catch((err: unknown) => {

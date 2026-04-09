@@ -2,7 +2,7 @@
 import "dotenv/config";
 import http from "node:http";
 import { createRequire } from "module";
-import { sendQuestionAndWait, startBoltApp, stopBoltApp } from "./slack.js";
+import { sendQuestionAndWait, startBoltApp, stopBoltApp, SlackQuestionOption } from "./slack.js";
 import { getServerPort, getServerApiKey } from "./config.js";
 
 const require = createRequire(import.meta.url);
@@ -54,6 +54,8 @@ const httpServer = http.createServer(async (req, res) => {
         question?: string;
         context?: string;
         slack_user_id?: string;
+        options?: { label: string; description?: string }[];
+        multi_select?: boolean;
       };
 
       if (!body.question || typeof body.question !== "string") {
@@ -61,13 +63,25 @@ const httpServer = http.createServer(async (req, res) => {
         return;
       }
 
+      // Build the question text
       const fullMessage = body.context
         ? `*Context:* ${body.context}\n\n*Question:* ${body.question}`
         : `*Question:* ${body.question}`;
 
+      // Map options to SlackQuestionOption[]
+      const slackOptions: SlackQuestionOption[] | undefined =
+        body.options && body.options.length > 0
+          ? body.options.map((o) => ({
+              label: o.label,
+              description: o.description,
+            }))
+          : undefined;
+
       const answer = await sendQuestionAndWait(
         fullMessage,
         body.slack_user_id,
+        slackOptions,
+        body.multi_select,
       );
 
       sendJson(res, 200, { answer });

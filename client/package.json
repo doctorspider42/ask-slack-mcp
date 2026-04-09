@@ -1,6 +1,6 @@
 {
   "name": "ask-slack-mcp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "MCP client for ask-slack — human-in-the-loop via Slack DM",
   "type": "module",
   "main": "dist/index.js",

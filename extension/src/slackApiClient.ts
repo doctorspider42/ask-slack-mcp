@@ -5,17 +5,30 @@ export interface AskSlackConfig {
   slackUserId: string;
 }
 
+export interface AskSlackOption {
+  label: string;
+  description?: string;
+}
+
 export async function askViaSlackApi(
   config: AskSlackConfig,
   question: string,
   context?: string,
+  options?: AskSlackOption[],
+  multiSelect?: boolean,
 ): Promise<string> {
-  const body: Record<string, string> = {
+  const body: Record<string, unknown> = {
     question,
     slack_user_id: config.slackUserId,
   };
   if (context) {
     body.context = context;
+  }
+  if (options && options.length > 0) {
+    body.options = options;
+  }
+  if (multiSelect !== undefined) {
+    body.multi_select = multiSelect;
   }
 
   const response = await fetch(`${config.apiUrl}/api/ask`, {

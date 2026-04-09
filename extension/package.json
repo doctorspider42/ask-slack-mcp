@@ -3,7 +3,7 @@
   "displayName": "Ask Slack",
   "description": "Ask user questions with local UI and Slack DM fallback for Copilot Chat agents",
   "version": "0.1.0",
-  "publisher": "doctorspider42",
+  "publisher": "doctorspider",
   "license": "MIT",
   "repository": {
     "type": "git",

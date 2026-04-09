@@ -1,6 +1,7 @@
 {
 	"servers": {
-		"ask-slack": {
+
+		"ask-slack-local": {
 			"type": "stdio",
 			"command": "node",
 			"args": [

@@ -1,7 +1,7 @@
 {
   "name": "ask-slack-mcp",
-  "version": "1.0.0",
-  "description": "MCP server — human-in-the-loop via Slack DM",
+  "version": "1.0.1",
+  "description": "MCP server — human-in-the-loop interactions",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

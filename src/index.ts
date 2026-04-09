@@ -6,24 +6,24 @@ import { z } from "zod";
 import { sendQuestionAndWait, startBoltApp } from "./slack.js";
 
 const server = new McpServer({
-  name: "slack-human-in-the-loop",
-  version: "1.0.0",
+  name: "ask-user-in-slack",
+  version: "1.0.1",
 });
 
 server.tool(
   "ask_user",
-  "Zadaj pytanie użytkownikowi przez Slack i poczekaj na odpowiedź",
+  "Ask the user a question and wait for their response",
   {
-    question: z.string().describe("Pytanie do zadania użytkownikowi"),
+    question: z.string().describe("The question to ask"),
     context: z
       .string()
       .optional()
-      .describe("Opcjonalny kontekst zadania"),
+      .describe("Optional context for the question"),
   },
   async ({ question, context }) => {
     const fullMessage = context
-      ? `*Kontekst:* ${context}\n\n*Pytanie:* ${question}`
-      : `*Pytanie od AI:* ${question}`;
+      ? `*Context:* ${context}\n\n*Question:* ${question}`
+      : `*Question:* ${question}`;
 
     const answer = await sendQuestionAndWait(fullMessage);
 

@@ -10,9 +10,9 @@ interface GenericMessageEvent {
   user?: string;
 }
 
-const TIMEOUT_MS = 5 * 60 * 1000; // 5 minut
+const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-// Mapa: channelId -> resolver oczekującego Promise
+// Map: channelId -> resolver of pending Promise
 const pendingQuestions = new Map<string, (answer: string) => void>();
 
 const web = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -24,11 +24,11 @@ const boltApp = new App({
   appToken: process.env.SLACK_APP_TOKEN,
 });
 
-// Listener: gdy użytkownik odpowie w DM
+// Listener: when user replies in DM
 boltApp.message(async ({ message }) => {
   const msg = message as GenericMessageEvent;
 
-  // Obsługuj tylko wiadomości bezpośrednie napisane przez użytkownika (nie przez bota)
+  // Handle only direct messages sent by user (not by bot)
   if (msg.subtype !== undefined) return;
 
   const resolver = pendingQuestions.get(msg.channel);
@@ -45,27 +45,27 @@ export async function startBoltApp(): Promise<void> {
 export async function sendQuestionAndWait(question: string): Promise<string> {
   const slackUserId = process.env.SLACK_USER_ID;
   if (!slackUserId) {
-    throw new Error("Brak zmiennej środowiskowej SLACK_USER_ID");
+    throw new Error("Missing SLACK_USER_ID environment variable");
   }
 
-  // Otwórz kanał DM z użytkownikiem
+  // Open DM channel with user
   const dmResult = await web.conversations.open({ users: slackUserId });
   const channelId = (dmResult.channel as { id: string }).id;
 
-  // Wyślij wiadomość
+  // Send message
   await web.chat.postMessage({
     channel: channelId,
     text: question,
     mrkdwn: true,
   });
 
-  // Czekaj na odpowiedź (Promise z timeoutem)
+  // Wait for response (Promise with timeout)
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingQuestions.delete(channelId);
       reject(
         new Error(
-          "Timeout — użytkownik nie odpowiedział w ciągu 5 minut"
+          "Timeout — user did not respond within 5 minutes"
         )
       );
     }, TIMEOUT_MS);

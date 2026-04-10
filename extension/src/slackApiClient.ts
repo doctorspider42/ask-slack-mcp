@@ -10,6 +10,14 @@ export interface AskSlackOption {
   description?: string;
 }
 
+/**
+ * Node 18+ fetch (undici) resolves `localhost` to IPv6 `::1` first.
+ * Docker on Windows/Mac typically only binds on IPv4, causing "fetch failed".
+ */
+function normalizeUrl(url: string): string {
+  return url.replace(/\/\/localhost([:/?#])/i, "//127.0.0.1$1");
+}
+
 export async function askViaSlackApi(
   config: AskSlackConfig,
   question: string,
@@ -31,7 +39,7 @@ export async function askViaSlackApi(
     body.multi_select = multiSelect;
   }
 
-  const response = await fetch(`${config.apiUrl}/api/ask`, {
+  const response = await fetch(`${normalizeUrl(config.apiUrl)}/api/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

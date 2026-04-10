@@ -23,7 +23,6 @@ interface PendingQuestion {
   multiSelect?: boolean;
 }
 
-const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const STARTUP_DELAY_MS = 6000; // Wait for stale Slack connections to expire
 
 const pendingQuestions = new Map<string, PendingQuestion>();
@@ -271,6 +270,7 @@ export async function sendQuestionAndWait(
   slackUserId?: string,
   options?: SlackQuestionOption[],
   multiSelect?: boolean,
+  signal?: AbortSignal,
 ): Promise<string> {
   const userId = slackUserId ?? process.env.SLACK_USER_ID;
   if (!userId) {
@@ -303,24 +303,36 @@ export async function sendQuestionAndWait(
     });
   }
 
-  // Wait for response (text reply or interactive action)
+  // Wait for response (text reply or interactive action) — no server-side timeout,
+  // the client controls how long to wait via its own HTTP timeout.
   console.error(
-    `[Slack] Waiting for reply in channel ${channelId} (timeout: ${TIMEOUT_MS / 1000}s)`,
+    `[Slack] Waiting for reply in channel ${channelId} (no timeout)`,
   );
   return new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      console.error(
-        `[Slack] TIMEOUT — no reply received for channel ${channelId}`,
-      );
+    const cleanup = () => {
       pendingQuestions.delete(channelId);
-      reject(
-        new Error("Timeout — user did not respond within 5 minutes"),
+    };
+
+    // Abort when the HTTP client disconnects
+    const onAbort = () => {
+      console.error(
+        `[Slack] Client disconnected — cleaning up pending question for channel ${channelId}`,
       );
-    }, TIMEOUT_MS);
+      cleanup();
+      reject(new Error("Client disconnected"));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        reject(new Error("Client disconnected"));
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     pendingQuestions.set(channelId, {
       resolve: (answer: string) => {
-        clearTimeout(timer);
+        if (signal) signal.removeEventListener("abort", onAbort);
         resolve(answer);
       },
       options: hasOptions ? options : undefined,

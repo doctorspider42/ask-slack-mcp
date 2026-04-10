@@ -91,11 +91,16 @@ const httpServer = http.createServer(async (req, res) => {
             }))
           : undefined;
 
+      // Abort when the HTTP client disconnects so we don't leak pending questions
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+
       const answer = await sendQuestionAndWait(
         fullMessage,
         body.slack_user_id,
         slackOptions,
         body.multi_select,
+        abortController.signal,
       );
 
       sendJson(res, 200, { answer });

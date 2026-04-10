@@ -2,7 +2,7 @@
   "name": "ask-slack-vscode",
   "displayName": "Ask Slack",
   "description": "Ask user questions with local UI and Slack DM fallback for Copilot Chat agents",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "doctorspider",
   "license": "MIT",
   "repository": {

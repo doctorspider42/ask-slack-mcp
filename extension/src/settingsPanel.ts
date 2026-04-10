@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 
 const API_KEY_SECRET = "askSlack.apiKey";
 
+function normalizeUrl(url: string): string {
+  return url.replace(/\/\/localhost([:/?#])/i, "//127.0.0.1$1");
+}
+
 export class SettingsPanel {
   public static readonly viewType = "askSlack.settingsPanel";
   private static currentPanel: SettingsPanel | undefined;
@@ -103,7 +107,7 @@ export class SettingsPanel {
     }
 
     try {
-      const resp = await fetch(`${apiUrl}/health/auth`, {
+      const resp = await fetch(`${normalizeUrl(apiUrl)}/health/auth`, {
         headers: { "x-api-key": apiKey },
       });
       if (resp.ok) {

@@ -1,120 +1,72 @@
 # ask-slack-mcp
 
-Going to the bathroom and terrified your AI agent will be stuck waiting for your approval? Grabbing lunch while Copilot runs a 30-minute task, only to find it froze 29 minutes ago asking "should I use camelCase or snake_case?"
+Let your AI agents ask you questions via **Slack DM** — answer from your phone while the agent keeps running. Human-in-the-loop without being glued to your desk.
 
-**Relax.** This project lets AI agents ask you questions via **Slack DM** — so you can answer from your phone, the couch, or wherever you happen to be. Human-in-the-loop, minus the "glued to your chair" part.
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) tool + VS Code extension that enables AI agents to pause, ask a real human a question, and wait for their reply — delivered to Slack and/or directly inside VS Code.
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) tool + VS Code extension that enables **human-in-the-loop** interactions via Slack DM. AI agents can pause and ask a real human a question, then wait for their reply — directly in Slack.
-
-This repository contains three independent packages:
+This repository contains three packages:
 
 | Folder | Package | Description |
 |--------|---------|-------------|
-| [`client/`](client/) | `ask-slack-mcp` (npm) | MCP stdio client — runs on each user's machine |
 | [`server/`](server/) | `ask-slack-mcp-server` (npm) | HTTP API server — Slack bridge (deploy once) |
-| [`extension/`](extension/) | `ask-slack-vscode` (VS Code) | VS Code extension — local UI prompt with Slack fallback |
-
-## Quick install (client)
-
-Fill in the three env vars after clicking — `ASK_SLACK_API_URL`, `ASK_SLACK_API_KEY`, `SLACK_USER_ID`.
-
-#### npx (requires Node.js)
-
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
-[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
-
-#### Docker (no Node.js needed)
-
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Docker-0098FF?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
-[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Docker-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+| [`extension/`](extension/) | `ask-slack-vscode` (VS Code) | **Recommended** — VS Code extension with inline prompt + Slack fallback |
+| [`client/`](client/) | `ask-slack-mcp` (npm) | MCP stdio client — for non-VS Code environments (Claude Code, Cursor, etc.) |
 
 ---
 
-## Architecture
+## Recommended: VS Code Extension
+
+The VS Code extension is the recommended way to use this project. It registers a Copilot Chat tool (`#ask_slack`) that shows a **native inline question prompt** inside VS Code. If you don't answer within the timeout, the question is forwarded to your Slack DM — the first answer wins.
+
+**Flow:**
+1. Agent calls `#ask_slack` → inline prompt appears in VS Code
+2. You answer locally → instant response, no Slack involved
+3. Timeout expires (default 60 s) → question sent to Slack DM with interactive buttons
+4. First answer wins
+
+**Away Mode:** Skip the local prompt entirely and route everything straight to Slack.
+
+The extension talks directly to the server HTTP API — no MCP client needed. API key is stored securely in the OS keychain.
+
+### Install
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Extension-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=doctorspider.ask-slack-vscode)
+
+Search for **Ask Slack** in the VS Code Extensions view, or click the badge above.
+
+For development / VSIX install instructions, see [extension/README.md](extension/README.md).
+
+### Setup
+
+1. Run `Ask Slack: Open Settings` from the Command Palette
+2. Set **API URL**, **API Key**, and **Slack User ID**
+3. Click **Test Connection**
+4. (Optional) Add to `.github/copilot-instructions.md`:
 
 ```
-┌─────────────────────────────────────────────┐
-│      server/ — API SERVER (one instance)     │
-│  Connects to Slack via Socket Mode           │
-│  Exposes HTTP API on :3000                   │
-└──────────────────┬──────────────────────────┘
-                   │ HTTPS + API key
-        ┌──────────┼──────────────────┐
-        ▼          ▼                  ▼
-  ┌───────────┐ ┌───────────┐  ┌──────────────┐
-  │ client/   │ │ client/   │  │ extension/   │
-  │ MCP User A│ │ MCP User B│  │ VS Code ext  │
-  └───────────┘ └───────────┘  └──────────────┘
+Add Always use #ask_slack tool to ask user questions
 ```
 
-One API server holds a single Slack WebSocket connection. Each client (MCP or VS Code extension) sends its `SLACK_USER_ID` with every request, so questions are always delivered to the right person.
+### Extension settings
 
-The **VS Code extension** is standalone — it talks directly to the server and does **not** use the MCP client. It provides a native UI prompt in VS Code with an automatic Slack fallback after a configurable timeout.
-
----
-
-## Server
-
-The server holds the Slack connection and exposes an HTTP API. Deploy it once; all clients connect to it.
-
-### Slack app setup
-
-Go to [api.slack.com/apps](https://api.slack.com/apps) and configure:
-
-- **Socket Mode** → enable, generate an **App-Level Token** (`xapp-...`) with `connections:write` scope
-- **Interactivity & Shortcuts** → enable (required for interactive buttons/checkboxes in Block Kit)
-- **OAuth & Permissions** → bot token scopes: `chat:write`, `im:read`, `im:write`, `im:history`
-- **Event Subscriptions** → subscribe to `message.im` bot event
-- Install the app to your workspace, copy the **Bot User OAuth Token** (`xoxb-...`)
-
-### Server environment variables
-
-| Variable | Description |
-|---|---|
-| `ASK_SLACK_API_KEY` | Secret key for authenticating client requests |
-| `SLACK_BOT_TOKEN` | Bot User OAuth Token (`xoxb-...`) |
-| `SLACK_APP_TOKEN` | App-Level Token for Socket Mode (`xapp-...`) |
-| `SLACK_SIGNING_SECRET` | Slack app signing secret |
-| `PORT` | HTTP port (default: `3000`) |
-
-### Run with npx (quickest)
-
-```bash
-ASK_SLACK_API_KEY=your-secret \
-SLACK_BOT_TOKEN=xoxb-... \
-SLACK_APP_TOKEN=xapp-... \
-SLACK_SIGNING_SECRET=... \
-  npx ask-slack-mcp-server
-```
-
-### Run with Docker
-
-```bash
-cd server
-docker build -t ask-slack-mcp-server .
-docker run --env-file .env -p 3000:3000 ask-slack-mcp-server
-```
-
-### Deploy remotely
-
-The server is a regular long-running Node.js process — deploy it anywhere that runs Node 18+ or Docker:
-
-- **Azure** — see [docs/azure-deployment.md](docs/azure-deployment.md)
-- **Any VPS / VM** — `npx ask-slack-mcp-server` with env vars set
-- **Docker host** — use the included `Dockerfile`
-
-### Server endpoints
-
-| Endpoint | Auth | Description |
+| Setting | Default | Description |
 |---|---|---|
-| `GET /health` | none | `{"status":"ok","version":"..."}` |
-| `POST /api/ask` | `x-api-key` header | Send a question, wait for Slack reply |
+| `askSlack.apiUrl` | `""` | Server URL (e.g. `https://ask-slack.yourcompany.com`) |
+| `askSlack.slackUserId` | `""` | Your Slack user ID |
+| `askSlack.timeoutSeconds` | `60` | Seconds before Slack fallback |
+| `askSlack.awayMode` | `false` | Skip local prompt, send straight to Slack |
+
+API key is stored in OS keychain — configure it from the settings panel.
+
+If `apiUrl`, `apiKey`, or `slackUserId` are empty, the tool works in **local-only mode** — just the inline prompt, no Slack fallback.
+
+For full extension documentation, see [extension/README.md](extension/README.md).
 
 ---
 
-## Client
+## MCP Client (Claude Code, Cursor, and other MCP hosts)
 
-The MCP client runs locally on each user's machine. It connects to the API server — no Slack tokens needed.
+For environments other than VS Code — such as Claude Code, Cursor, or any other MCP-compatible client — use the `ask-slack-mcp` stdio client. It exposes the same `ask_user` tool over the MCP protocol.
 
 Each user needs three values:
 
@@ -126,7 +78,21 @@ Each user needs three values:
 
 To find your `SLACK_USER_ID`: click your profile in Slack → **View profile** → `⋯` → **Copy member ID**.
 
-### mcp.json (npx)
+### Quick install (one-click)
+
+Fill in the three env vars after clicking.
+
+#### npx (requires Node.js)
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_MCP_Client-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_MCP_Client-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+
+#### Docker (no Node.js needed)
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Docker-0098FF?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Docker-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ask-slack-mcp&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22ASK_SLACK_API_URL%22%2C%22-e%22%2C%22ASK_SLACK_API_KEY%22%2C%22-e%22%2C%22SLACK_USER_ID%22%2C%22node%3A24-alpine%22%2C%22npx%22%2C%22-y%22%2C%22ask-slack-mcp%22%5D%2C%22env%22%3A%7B%22ASK_SLACK_API_URL%22%3A%22%22%2C%22ASK_SLACK_API_KEY%22%3A%22%22%2C%22SLACK_USER_ID%22%3A%22%22%7D%7D)
+
+### Manual config — mcp.json (npx)
 
 ```json
 {
@@ -144,7 +110,7 @@ To find your `SLACK_USER_ID`: click your profile in Slack → **View profile** �
 }
 ```
 
-### mcp.json (Docker — no Node.js needed)
+### Manual config — mcp.json (Docker)
 
 ```json
 {
@@ -168,90 +134,91 @@ To find your `SLACK_USER_ID`: click your profile in Slack → **View profile** �
 }
 ```
 
-### Local testing (server on localhost)
+---
 
-```json
-{
-  "mcpServers": {
-    "ask-slack-mcp": {
-      "command": "npx",
-      "args": ["-y", "ask-slack-mcp"],
-      "env": {
-        "ASK_SLACK_API_URL": "http://localhost:3000",
-        "ASK_SLACK_API_KEY": "your-secret-api-key",
-        "SLACK_USER_ID": "U01XXXXXXX"
-      }
-    }
-  }
-}
+## Server
+
+The server holds the Slack WebSocket connection and exposes an HTTP API. Deploy it once — all clients (extension, MCP client) connect to it.
+
+### Slack app setup
+
+Go to [api.slack.com/apps](https://api.slack.com/apps) and configure:
+
+- **Socket Mode** → enable, generate an **App-Level Token** (`xapp-...`) with `connections:write` scope
+- **Interactivity & Shortcuts** → enable (required for interactive buttons/checkboxes in Block Kit)
+- **OAuth & Permissions** → bot token scopes: `chat:write`, `im:read`, `im:write`, `im:history`
+- **Event Subscriptions** → subscribe to `message.im` bot event
+- Install the app to your workspace, copy the **Bot User OAuth Token** (`xoxb-...`)
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `ASK_SLACK_API_KEY` | Secret key for authenticating client requests |
+| `SLACK_BOT_TOKEN` | Bot User OAuth Token (`xoxb-...`) |
+| `SLACK_APP_TOKEN` | App-Level Token for Socket Mode (`xapp-...`) |
+| `SLACK_SIGNING_SECRET` | Slack app signing secret |
+| `PORT` | HTTP port (default: `3000`) |
+
+### Run with npx
+
+```bash
+ASK_SLACK_API_KEY=your-secret \
+SLACK_BOT_TOKEN=xoxb-... \
+SLACK_APP_TOKEN=xapp-... \
+SLACK_SIGNING_SECRET=... \
+  npx ask-slack-mcp-server
 ```
+
+### Run with Docker
+
+```bash
+cd server
+docker build -t ask-slack-mcp-server .
+docker run --env-file .env -p 3000:3000 ask-slack-mcp-server
+```
+
+### Deploy remotely
+
+- **Azure** — see [docs/azure-deployment.md](docs/azure-deployment.md)
+- **Any VPS / VM** — `npx ask-slack-mcp-server` with env vars set
+- **Docker host** — use the included `Dockerfile`
+
+### Endpoints
+
+| Endpoint | Auth | Description |
+|---|---|---|
+| `GET /health` | none | `{"status":"ok","version":"..."}` |
+| `POST /api/ask` | `x-api-key` header | Send a question, wait for Slack reply |
 
 ---
 
-## VS Code Extension
-
-The extension registers a Copilot Chat tool (`#ask_slack`) that shows a **native inline question prompt** when the agent needs your input. If you don't answer within the timeout, the question is forwarded to your Slack DM. The first answer (local or Slack) wins.
-
-Supports **multiple-choice options** — rendered as interactive buttons (single select) or checkboxes (multi select) in Slack via Block Kit. Users can also reply with option numbers (e.g. `1` or `1, 3`) instead of clicking.
-
-**Flow:**
-1. Agent calls `#ask_slack` → inline question carousel appears
-2. You answer locally → instant response, no Slack involved
-3. Timeout expires (default 60 s) → question sent to Slack DM with interactive buttons
-4. First answer wins — local typing or Slack reply
-
-**Away Mode:** Toggle it on and questions skip the local prompt entirely — they go straight to Slack. Perfect for when you step away but want your agents to keep working.
-
-The extension is **standalone** — it calls the server HTTP API directly without the MCP client. API key is stored securely in the OS keychain.
-
-For full extension documentation, see [extension/README.md](extension/README.md).
-
-### Install from VSIX (development)
-
-```bash
-cd extension
-npm install
-npm run compile
-npx @vscode/vsce package
-code --install-extension ask-slack-vscode-0.1.0.vsix
-```
-
-### Install from Marketplace (coming soon)
-
-Once published, install directly from the VS Code Extensions view by searching for **Ask Slack**.
-
-<!-- [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Extension-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=doctorspider42.ask-slack-vscode) -->
-
-### Extension settings
-
-Configure via `Ask Slack: Open Settings` (Command Palette) or `settings.json`:
-
-| Setting | Default | Description |
-|---|---|---|
-| `askSlack.timeoutSeconds` | `60` | Seconds before Slack fallback |
-| `askSlack.apiUrl` | `""` | Server URL (e.g. `http://localhost:3000`) |
-| `askSlack.slackUserId` | `""` | Your Slack user ID |
-| `askSlack.awayMode` | `false` | Skip local prompt, send straight to Slack |
-
-API key is stored in OS keychain — configure it from the settings panel.
-
-If `apiUrl`, `apiKey`, or `slackUserId` are empty, the tool works in **local-only mode** — no Slack fallback, just the inline prompt.
-
-### Usage in Copilot Chat
-
-Reference the tool in prompts or instructions:
+## Architecture
 
 ```
-If you need to ask the user a question, use #ask_slack
+┌─────────────────────────────────────────────┐
+│      server/ — API SERVER (one instance)     │
+│  Connects to Slack via Socket Mode           │
+│  Exposes HTTP API on :3000                   │
+└──────────────────┬──────────────────────────┘
+                   │ HTTPS + API key
+        ┌──────────┼──────────────────┐
+        ▼          ▼                  ▼
+  ┌───────────┐ ┌───────────┐  ┌──────────────┐
+  │ client/   │ │ client/   │  │ extension/   │
+  │ MCP User A│ │ MCP User B│  │ VS Code ext  │
+  └───────────┘ └───────────┘  └──────────────┘
 ```
+
+One server holds a single Slack WebSocket connection. Each client sends its `SLACK_USER_ID` with every request so questions reach the right person.
 
 ---
 
 ## Tool reference
 
-### `ask_user` (MCP) / `#ask_slack` (VS Code)
+### `ask_user` (MCP) / `#ask_slack` (VS Code extension)
 
-Ask the configured Slack user a question and wait for their reply. Supports plain text questions and multiple-choice options.
+Ask the configured Slack user a question and wait for their reply. Supports plain text and multiple-choice options.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -260,9 +227,9 @@ Ask the configured Slack user a question and wait for their reply. Supports plai
 | `options` | array | No | Selectable answers (`{ label, description? }`) — rendered as buttons or checkboxes in Slack |
 | `multi_select` | boolean | No | Allow selecting multiple options (checkboxes + Submit in Slack) |
 
-**VS Code extension** also supports `allowFreeformInput` (boolean) — allow typed answer alongside options.
+**VS Code extension** also supports `allowFreeformInput` (boolean) — allow a typed answer alongside options.
 
-When options are used, Slack shows interactive **Block Kit buttons** (single select) or **checkboxes** (multi select). Users can also reply with option numbers (e.g. `1` or `1, 3`).
+When options are used, Slack renders **Block Kit buttons** (single select) or **checkboxes** (multi select). Users can also reply with option numbers (e.g. `1` or `1, 3`).
 
 **Timeout:** 5 minutes (server-side). Throws if no response is received.
 

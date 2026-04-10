@@ -48,8 +48,12 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     options: vscode.LanguageModelToolInvocationPrepareOptions<AskUserInput>,
     _token: vscode.CancellationToken,
   ): vscode.ProviderResult<vscode.PreparedToolInvocation> {
+    const { question, context } = options.input;
+    const fullText = context
+      ? `**Context:** ${context}\n\n${question}`
+      : question;
     return {
-      invocationMessage: `Asking: "${options.input.question}"`,
+      invocationMessage: `Asking:\n\n${fullText}`,
     };
   }
 
@@ -100,7 +104,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
     token: vscode.CancellationToken,
   ): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<string>(async (resolve, reject) => {
       let resolved = false;
       let slackPending: Promise<string> | undefined;
       let slackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -164,13 +168,36 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
       }
 
       // Build the question carousel input
-      const questionText = context
-        ? `Context: ${context}\n\n${question}`
-        : question;
-
+      const MAX_QUESTION_LENGTH = 200;
       const timeoutNote = slackConfigured
         ? `\n\n_If no answer within ${config.timeoutSeconds}s, this will be sent to Slack._`
         : "";
+
+      // Use header for context, keep question field for the actual question
+      const header = context
+        ? `Context: ${context.length > 100 ? context.slice(0, 100) + "..." : context}`
+        : "Question from Agent";
+
+      const isLong = question.length > MAX_QUESTION_LENGTH || (context && context.length > 100);
+      const truncatedQuestion = isLong
+        ? question.slice(0, MAX_QUESTION_LENGTH) + "..."
+        : question;
+
+      // Show full question in a temporary editor tab when truncated
+      if (isLong) {
+        const fullText = context
+          ? `Context:\n${context}\n\nQuestion:\n${question}`
+          : question;
+        const doc = await vscode.workspace.openTextDocument({
+          content: fullText,
+          language: "markdown",
+        });
+        await vscode.window.showTextDocument(doc, {
+          viewColumn: vscode.ViewColumn.Beside,
+          preserveFocus: true,
+          preview: true,
+        });
+      }
 
       // Map options to the format vscode_askQuestions expects
       const questionOptions = options?.map((o, i) => ({
@@ -193,8 +220,8 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
             input: {
               questions: [
                 {
-                  header: "Question from Agent",
-                  question: questionText + timeoutNote,
+                  header,
+                  question: truncatedQuestion + timeoutNote,
                   options: questionOptions,
                   multiSelect: multiSelect ?? false,
                   allowFreeformInput: freeform,

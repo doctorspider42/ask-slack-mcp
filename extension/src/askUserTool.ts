@@ -29,12 +29,13 @@ const API_KEY_SECRET = "askSlack.apiKey";
 
 export async function getConfig(
   secrets: vscode.SecretStorage,
-): Promise<AskSlackConfig & { awayMode: boolean }> {
+): Promise<AskSlackConfig & { awayMode: boolean; disableNotifications: boolean }> {
   const cfg = vscode.workspace.getConfiguration("askSlack");
   const apiKey = (await secrets.get(API_KEY_SECRET)) ?? "";
   return {
     timeoutSeconds: cfg.get<number>("timeoutSeconds", 60),
     awayMode: cfg.get<boolean>("awayMode", false),
+    disableNotifications: cfg.get<boolean>("disableNotifications", false),
     apiUrl: cfg.get<string>("apiUrl", ""),
     apiKey,
     slackUserId: cfg.get<string>("slackUserId", ""),
@@ -63,7 +64,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
   ): Promise<vscode.LanguageModelToolResult> {
     const { question, context, options: questionOptions, multiSelect, allowFreeformInput } = options.input;
     const config = await getConfig(this._secrets);
-    const slackConfigured = !!(
+    const slackConfigured = !config.disableNotifications && !!(
       config.apiUrl &&
       config.apiKey &&
       config.slackUserId

@@ -72,6 +72,7 @@ export class SettingsPanel {
               apiKey,
               slackUserId: cfg.get<string>("slackUserId", ""),
               timeoutSeconds: cfg.get<number>("timeoutSeconds", 60),
+              disableNotifications: cfg.get<boolean>("disableNotifications", false),
               awayMode: cfg.get<boolean>("awayMode", false),
             },
           });
@@ -443,6 +444,15 @@ export class SettingsPanel {
   <div class="section-title">Behavior</div>
 
   <div class="field away-mode-field">
+    <div class="away-note">Enable this to disable Slack notifications entirely. Questions can only be answered in the VS Code UI. Away mode cannot be used while notifications are disabled.</div>
+    <label class="toggle-label">
+      <input type="checkbox" id="disableNotifications" data-key="disableNotifications" data-type="boolean">
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      Disable Slack notifications — UI only
+    </label>
+  </div>
+
+  <div class="field away-mode-field" id="awayModeField">
     <div class="away-note">Enable this when you're away from VS Code. Questions will skip the local prompt and go directly to Slack — the timeout setting below is preserved and will be used again once you turn this off.</div>
     <label class="toggle-label">
       <input type="checkbox" id="awayMode" data-key="awayMode" data-type="boolean">
@@ -484,6 +494,7 @@ export class SettingsPanel {
           el.value = value;
         }
       }
+      updateAwayModeState();
     } else if (msg.type === 'testResult') {
       const status = document.getElementById('testStatus');
       status.textContent = msg.message;
@@ -544,6 +555,33 @@ export class SettingsPanel {
     status.style.display = 'block';
     vscode.postMessage({ type: 'test' });
   }
+
+  function updateAwayModeState() {
+    const disableNotif = document.getElementById('disableNotifications');
+    const awayMode = document.getElementById('awayMode');
+    const awayModeField = document.getElementById('awayModeField');
+    if (disableNotif.checked) {
+      awayMode.checked = false;
+      awayMode.disabled = true;
+      awayModeField.style.opacity = '0.5';
+      awayModeField.style.pointerEvents = 'none';
+    } else {
+      awayMode.disabled = false;
+      awayModeField.style.opacity = '1';
+      awayModeField.style.pointerEvents = 'auto';
+    }
+  }
+
+  document.getElementById('disableNotifications').addEventListener('change', function() {
+    updateAwayModeState();
+    if (this.checked) {
+      const awayMode = document.getElementById('awayMode');
+      if (awayMode.checked) {
+        awayMode.checked = false;
+        vscode.postMessage({ type: 'save', key: 'awayMode', value: false });
+      }
+    }
+  });
 </script>
 
 </body>

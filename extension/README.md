@@ -59,19 +59,25 @@ Use #ask_slack with question "Which approach?" and options ["Refactor", "Rewrite
 | `askSlack.timeoutSeconds` | `60` | Seconds before Slack fallback kicks in |
 | `askSlack.apiUrl` | `""` | Server URL |
 | `askSlack.slackUserId` | `""` | Your Slack user ID |
+| `askSlack.disableNotifications` | `false` | Disable Slack notifications — UI only |
 | `askSlack.awayMode` | `false` | Skip local prompt, send straight to Slack |
 
 API key is stored securely in OS keychain — configure it via the settings panel.
 
+### Disable Notifications
+
+Toggle **Disable Notifications** to turn off all Slack DM forwarding. Questions can only be answered in the VS Code UI — no messages will be sent to Slack, and the timeout fallback is skipped. When this is enabled, **Away Mode** is automatically disabled and cannot be toggled on.
+
 ### Away Mode
 
-Toggle **Away Mode** and questions skip the local prompt entirely — they go straight to Slack. Perfect for when you step away but want your agents to keep working.
+Toggle **Away Mode** and questions skip the local prompt entirely — they go straight to Slack. Perfect for when you step away but want your agents to keep working. Cannot be enabled while Disable Notifications is active.
 
 ## Features
 
 - **Inline question UI** — same native carousel as `vscode_askQuestions`, with options, multi-select, and freeform input
 - **Slack DM fallback** — unanswered questions are forwarded to Slack with interactive buttons/checkboxes (Block Kit)
 - **Away Mode** — send everything to Slack immediately, no local prompt
+- **Disable Notifications** — turn off Slack entirely, answer only in VS Code UI
 - **Numbered reply fallback** — reply with `1` or `1, 3` in Slack instead of clicking buttons
 - **Secure** — API key stored in OS keychain (Windows Credential Manager / macOS Keychain)
 - **Settings GUI** — configure everything from a webview panel (`Ask Slack: Open Settings`)

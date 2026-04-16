@@ -517,20 +517,23 @@ export class SettingsPanel {
     const eventName = input.type === 'checkbox' ? 'change' : 'input';
     input.addEventListener(eventName, () => {
       const key = input.dataset.key;
-      clearTimeout(saveTimers[key]);
-      const delay = input.type === 'checkbox' ? 0 : 500;
-      saveTimers[key] = setTimeout(() => {
-        let value;
-        if (input.type === 'checkbox') {
-          value = input.checked;
-        } else if (input.type === 'number') {
-          value = parseInt(input.value, 10) || 60;
-        } else {
-          value = input.value;
-        }
-        vscode.postMessage({ type: 'save', key, value });
+      if (input.type === 'checkbox') {
+        // Save checkboxes immediately (no setTimeout — avoids race with panel disposal)
+        vscode.postMessage({ type: 'save', key, value: input.checked });
         showSaved(input.closest('.field') || input.parentElement);
-      }, delay);
+      } else {
+        clearTimeout(saveTimers[key]);
+        saveTimers[key] = setTimeout(() => {
+          let value;
+          if (input.type === 'number') {
+            value = parseInt(input.value, 10) || 60;
+          } else {
+            value = input.value;
+          }
+          vscode.postMessage({ type: 'save', key, value });
+          showSaved(input.closest('.field') || input.parentElement);
+        }, 500);
+      }
     });
   });
 

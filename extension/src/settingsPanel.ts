@@ -39,8 +39,9 @@ export class SettingsPanel {
   ) {
     this._panel = panel;
     this._secrets = secrets;
-    this._panel.webview.html = this.getHtml();
 
+    // Register listeners BEFORE setting HTML so the webview's
+    // initial "load" message is guaranteed to be caught.
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
     this._panel.webview.onDidReceiveMessage(
@@ -84,6 +85,9 @@ export class SettingsPanel {
       null,
       this._disposables,
     );
+
+    // Set HTML last — the script sends { type: 'load' } immediately on startup
+    this._panel.webview.html = this.getHtml();
   }
 
   private async testConnection() {

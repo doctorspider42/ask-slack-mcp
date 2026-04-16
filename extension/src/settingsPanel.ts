@@ -73,6 +73,7 @@ export class SettingsPanel {
               slackUserId: cfg.get<string>("slackUserId", ""),
               timeoutSeconds: cfg.get<number>("timeoutSeconds", 60),
               disableNotifications: cfg.get<boolean>("disableNotifications", false),
+              openLongQuestionsInFile: cfg.get<boolean>("openLongQuestionsInFile", true),
               awayMode: cfg.get<boolean>("awayMode", false),
             },
           });
@@ -442,6 +443,15 @@ export class SettingsPanel {
 
 <div class="section">
   <div class="section-title">Behavior</div>
+
+  <div class="field away-mode-field">
+    <div class="away-note">When enabled, questions that are too long for the inline prompt will be opened in a separate editor tab for easier reading.</div>
+    <label class="toggle-label">
+      <input type="checkbox" id="openLongQuestionsInFile" data-key="openLongQuestionsInFile" data-type="boolean">
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      Open long questions in a separate file
+    </label>
+  </div>
 
   <div class="field away-mode-field">
     <div class="away-note">Enable this to disable Slack notifications entirely. Questions can only be answered in the VS Code UI. Away mode cannot be used while notifications are disabled.</div>

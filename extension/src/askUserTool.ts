@@ -29,13 +29,14 @@ const API_KEY_SECRET = "askSlack.apiKey";
 
 export async function getConfig(
   secrets: vscode.SecretStorage,
-): Promise<AskSlackConfig & { awayMode: boolean; disableNotifications: boolean }> {
+): Promise<AskSlackConfig & { awayMode: boolean; disableNotifications: boolean; openLongQuestionsInFile: boolean }> {
   const cfg = vscode.workspace.getConfiguration("askSlack");
   const apiKey = (await secrets.get(API_KEY_SECRET)) ?? "";
   return {
     timeoutSeconds: cfg.get<number>("timeoutSeconds", 60),
     awayMode: cfg.get<boolean>("awayMode", false),
     disableNotifications: cfg.get<boolean>("disableNotifications", false),
+    openLongQuestionsInFile: cfg.get<boolean>("openLongQuestionsInFile", true),
     apiUrl: cfg.get<string>("apiUrl", ""),
     apiKey,
     slackUserId: cfg.get<string>("slackUserId", ""),
@@ -99,7 +100,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     options: QuestionOption[] | undefined,
     multiSelect: boolean | undefined,
     allowFreeformInput: boolean | undefined,
-    config: AskSlackConfig,
+    config: AskSlackConfig & { openLongQuestionsInFile: boolean },
     slackConfigured: boolean,
     awayMode: boolean,
     toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
@@ -169,7 +170,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
       }
 
       // Build the question carousel input
-      const MAX_QUESTION_LENGTH = 200;
+      const MAX_QUESTION_LENGTH = 220;
       const timeoutNote = slackConfigured
         ? `\n\n_If no answer within ${config.timeoutSeconds}s, this will be sent to Slack._`
         : "";
@@ -185,7 +186,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
         : question;
 
       // Show full question in a temporary editor tab when truncated
-      if (isLong) {
+      if (isLong && config.openLongQuestionsInFile) {
         const fullText = context
           ? `Context:\n${context}\n\nQuestion:\n${question}`
           : question;

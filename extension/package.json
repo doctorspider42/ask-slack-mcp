@@ -2,7 +2,7 @@
   "name": "ask-slack-vscode",
   "displayName": "Ask Slack",
   "description": "Ask user questions with local UI and Slack DM fallback for Copilot Chat agents",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "publisher": "doctorspider",
   "license": "MIT",
   "repository": {
@@ -90,6 +90,11 @@
     "configuration": {
       "title": "Ask Slack",
       "properties": {
+        "askSlack.openLongQuestionsInFile": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When enabled, long questions are opened in a separate editor tab for easier reading. When disabled, questions are always shown only in the inline prompt (truncated if too long).\n\n💡 **API key and full settings:** [Open Ask Slack Settings Panel](command:askSlack.openSettings)"
+        },
         "askSlack.disableNotifications": {
           "type": "boolean",
           "default": false,

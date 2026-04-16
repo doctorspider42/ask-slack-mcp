@@ -2,7 +2,7 @@
 import "dotenv/config";
 import http from "node:http";
 import { createRequire } from "module";
-import { sendQuestionAndWait, startBoltApp, stopBoltApp, SlackQuestionOption } from "./slack.js";
+import { sendQuestionAndWait, waitForExistingQuestion, startBoltApp, stopBoltApp, SlackQuestionOption } from "./slack.js";
 import { getServerPort, getServerApiKey } from "./config.js";
 
 const require = createRequire(import.meta.url);
@@ -107,6 +107,38 @@ const httpServer = http.createServer(async (req, res) => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[Server] Error handling /api/ask:", message);
+      sendJson(res, 500, { error: message });
+    }
+    return;
+  }
+
+  // Reconnect to existing pending question (no message resent)
+  if (req.method === "POST" && req.url === "/api/wait") {
+    const providedKey =
+      req.headers["x-api-key"] ??
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
+
+    if (!providedKey || providedKey !== API_KEY) {
+      sendJson(res, 401, { error: "Invalid or missing API key" });
+      return;
+    }
+
+    try {
+      const rawBody = await readBody(req);
+      const body = JSON.parse(rawBody) as { slack_user_id?: string };
+
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+
+      const answer = await waitForExistingQuestion(
+        body.slack_user_id,
+        abortController.signal,
+      );
+
+      sendJson(res, 200, { answer });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[Server] Error handling /api/wait:", message);
       sendJson(res, 500, { error: message });
     }
     return;

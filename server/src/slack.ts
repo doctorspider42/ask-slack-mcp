@@ -17,15 +17,47 @@ export interface SlackQuestionOption {
   description?: string;
 }
 
+interface Deferred {
+  promise: Promise<string>;
+  resolve: (value: string) => void;
+}
+
+function createDeferred(): Deferred {
+  let resolve!: (value: string) => void;
+  const promise = new Promise<string>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
+function raceWithAbort(promise: Promise<string>, signal?: AbortSignal): Promise<string> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new Error("Client disconnected"));
+  return new Promise<string>((resolve, reject) => {
+    const onAbort = () => reject(new Error("Client disconnected"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then((answer) => {
+      signal.removeEventListener("abort", onAbort);
+      resolve(answer);
+    });
+  });
+}
+
 interface PendingQuestion {
-  resolve: (answer: string) => void;
+  deferred: Deferred;
   options?: SlackQuestionOption[];
   multiSelect?: boolean;
+  messageTs: string; // timestamp of the sent question — used for polling fallback
 }
 
 const STARTUP_DELAY_MS = 6000; // Wait for stale Slack connections to expire
+const POLL_INTERVAL_MS = 15_000; // Poll every 15s as fallback for dead Socket Mode
 
 const pendingQuestions = new Map<string, PendingQuestion>();
+
+// Cache of recently answered questions so reconnecting clients can pick up the answer
+const resolvedAnswers = new Map<string, string>();
+const RESOLVED_ANSWER_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+let pollTimer: ReturnType<typeof setInterval> | undefined;
 
 const web = new WebClient(process.env.SLACK_BOT_TOKEN);
 
@@ -42,8 +74,12 @@ function resolvePending(channelId: string, answer: string): boolean {
   const pending = pendingQuestions.get(channelId);
   if (!pending) return false;
   console.error("[Bolt] Resolving pending question for channel:", channelId, "with:", answer);
-  pending.resolve(answer);
+  pending.deferred.resolve(answer);
   pendingQuestions.delete(channelId);
+
+  // Cache the answer so reconnecting clients can still pick it up
+  resolvedAnswers.set(channelId, answer);
+  setTimeout(() => resolvedAnswers.delete(channelId), RESOLVED_ANSWER_TTL_MS);
 
   // Confirm to the user on Slack that the answer was received
   web.chat.postMessage({
@@ -250,6 +286,60 @@ boltApp.action("ask_slack_submit", async ({ body, ack }) => {
   resolvePending(channelId, formatSelected(selectedLabels));
 });
 
+// --- Polling fallback ---
+// When Socket Mode dies silently, we poll conversations.history to pick up replies.
+
+async function pollForReplies(): Promise<void> {
+  for (const [channelId, pending] of pendingQuestions) {
+    try {
+      const history = await web.conversations.history({
+        channel: channelId,
+        oldest: pending.messageTs,
+        inclusive: false,
+        limit: 10,
+      });
+
+      const messages = history.messages ?? [];
+      // Find the first human (non-bot) reply
+      for (const msg of messages) {
+        if ((msg as { bot_id?: string }).bot_id) continue;
+        if ((msg as { subtype?: string }).subtype) continue;
+        const text = (msg as { text?: string }).text;
+        if (!text) continue;
+
+        let answer = text;
+        if (pending.options && pending.options.length > 0) {
+          const parsed = tryParseNumberedReply(text, pending.options);
+          if (parsed) answer = parsed;
+        }
+
+        console.error("[Poll] Found reply via polling for channel:", channelId, "answer:", answer);
+        resolvePending(channelId, answer);
+        break;
+      }
+    } catch (err) {
+      console.error("[Poll] Error polling channel", channelId, err);
+    }
+  }
+
+  // Stop polling when no more pending questions
+  if (pendingQuestions.size === 0 && pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = undefined;
+    console.error("[Poll] No more pending questions, polling stopped.");
+  }
+}
+
+function ensurePolling(): void {
+  if (pollTimer) return;
+  console.error(`[Poll] Starting polling fallback (every ${POLL_INTERVAL_MS / 1000}s)`);
+  pollTimer = setInterval(() => {
+    pollForReplies().catch((err) => {
+      console.error("[Poll] Unhandled error in pollForReplies:", err);
+    });
+  }, POLL_INTERVAL_MS);
+}
+
 // --- Exported functions ---
 
 export async function startBoltApp(): Promise<void> {
@@ -261,6 +351,10 @@ export async function startBoltApp(): Promise<void> {
 }
 
 export async function stopBoltApp(): Promise<void> {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = undefined;
+  }
   await boltApp.stop();
   console.error("[Bolt] Socket Mode app stopped.");
 }
@@ -285,10 +379,11 @@ export async function sendQuestionAndWait(
 
   // Build and send message
   const hasOptions = options && options.length > 0;
+  let sentResult: { ts?: string };
 
   if (hasOptions) {
     const blocks = buildOptionsBlocks(question, options, multiSelect ?? false);
-    await web.chat.postMessage({
+    sentResult = await web.chat.postMessage({
       channel: channelId,
       text: question, // fallback for notifications
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -296,7 +391,7 @@ export async function sendQuestionAndWait(
       mrkdwn: true,
     });
   } else {
-    await web.chat.postMessage({
+    sentResult = await web.chat.postMessage({
       channel: channelId,
       text: question,
       mrkdwn: true,
@@ -308,35 +403,54 @@ export async function sendQuestionAndWait(
   console.error(
     `[Slack] Waiting for reply in channel ${channelId} (no timeout)`,
   );
-  return new Promise<string>((resolve, reject) => {
-    const cleanup = () => {
-      pendingQuestions.delete(channelId);
-    };
 
-    // Abort when the HTTP client disconnects
-    const onAbort = () => {
-      console.error(
-        `[Slack] Client disconnected — cleaning up pending question for channel ${channelId}`,
-      );
-      cleanup();
-      reject(new Error("Client disconnected"));
-    };
-
-    if (signal) {
-      if (signal.aborted) {
-        reject(new Error("Client disconnected"));
-        return;
-      }
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
-
-    pendingQuestions.set(channelId, {
-      resolve: (answer: string) => {
-        if (signal) signal.removeEventListener("abort", onAbort);
-        resolve(answer);
-      },
-      options: hasOptions ? options : undefined,
-      multiSelect,
-    });
+  // Use a deferred promise so that if the HTTP client disconnects,
+  // the pending question survives and can be picked up by /api/wait.
+  const deferred = createDeferred();
+  pendingQuestions.set(channelId, {
+    deferred,
+    options: hasOptions ? options : undefined,
+    multiSelect,
+    messageTs: sentResult.ts!,
   });
+
+  ensurePolling();
+
+  return raceWithAbort(deferred.promise, signal);
+}
+
+/**
+ * Re-attach to an existing pending question without sending a new Slack message.
+ * Used by the reconnect flow when the HTTP connection drops before the user answers.
+ */
+export async function waitForExistingQuestion(
+  slackUserId?: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const userId = slackUserId ?? process.env.SLACK_USER_ID;
+  if (!userId) {
+    throw new Error(
+      "Missing slack_user_id parameter and SLACK_USER_ID environment variable",
+    );
+  }
+
+  const dmResult = await web.conversations.open({ users: userId });
+  const channelId = (dmResult.channel as { id: string }).id;
+
+  // If the answer arrived between disconnect and reconnect, return it immediately
+  const cachedAnswer = resolvedAnswers.get(channelId);
+  if (cachedAnswer !== undefined) {
+    resolvedAnswers.delete(channelId);
+    return cachedAnswer;
+  }
+
+  const pending = pendingQuestions.get(channelId);
+  if (!pending) {
+    throw new Error("No pending question found for this user");
+  }
+
+  console.error(
+    `[Slack] Client reconnected — re-attaching to pending question in channel ${channelId}`,
+  );
+  return raceWithAbort(pending.deferred.promise, signal);
 }

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AskSlackConfig, askViaSlackApi } from "./slackApiClient";
+import { AskSlackConfig, askViaSlackApiWithRetry } from "./slackApiClient";
 
 interface QuestionOption {
   label: string;
@@ -147,7 +147,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
           description: o.description,
         }));
 
-        slackPending = askViaSlackApi(config, question, context, slackOptions, multiSelect);
+        slackPending = askViaSlackApiWithRetry(config, question, context, slackOptions, multiSelect);
         slackPending
           .then((answer) => finish(answer, "slack"))
           .catch((err: unknown) => {

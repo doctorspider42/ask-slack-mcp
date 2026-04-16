@@ -57,7 +57,7 @@ export async function askViaSlackApi(
     );
   }
 
-  const result = (await response.json()) as { answer: string };
+  const result = (await response.json()) as { answer: string; question_id?: string };
   return result.answer;
 }
 

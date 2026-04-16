@@ -45,16 +45,24 @@ interface PendingQuestion {
   deferred: Deferred;
   options?: SlackQuestionOption[];
   multiSelect?: boolean;
-  messageTs: string; // timestamp of the sent question — used for polling fallback
+  messageTs: string; // timestamp of the sent question — unique key
+  channelId: string;
+  createdAt: number;
 }
 
 const STARTUP_DELAY_MS = 6000; // Wait for stale Slack connections to expire
 const POLL_INTERVAL_MS = 15_000; // Poll every 15s as fallback for dead Socket Mode
 
+// Keyed by messageTs (unique per question) — supports multiple pending questions per channel
 const pendingQuestions = new Map<string, PendingQuestion>();
 
+interface CachedAnswer {
+  answer: string;
+  channelId: string;
+}
+
 // Cache of recently answered questions so reconnecting clients can pick up the answer
-const resolvedAnswers = new Map<string, string>();
+const resolvedAnswers = new Map<string, CachedAnswer>(); // key: messageTs
 const RESOLVED_ANSWER_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -70,27 +78,41 @@ const boltApp = new App({
 
 // --- Helpers ---
 
-function resolvePending(channelId: string, answer: string): boolean {
-  const pending = pendingQuestions.get(channelId);
+function resolvePending(messageTs: string, answer: string): boolean {
+  const pending = pendingQuestions.get(messageTs);
   if (!pending) return false;
-  console.error("[Bolt] Resolving pending question for channel:", channelId, "with:", answer);
+  console.error("[Bolt] Resolving pending question:", messageTs, "in channel:", pending.channelId, "with:", answer);
   pending.deferred.resolve(answer);
-  pendingQuestions.delete(channelId);
+  pendingQuestions.delete(messageTs);
 
   // Cache the answer so reconnecting clients can still pick it up
-  resolvedAnswers.set(channelId, answer);
-  setTimeout(() => resolvedAnswers.delete(channelId), RESOLVED_ANSWER_TTL_MS);
+  resolvedAnswers.set(messageTs, { answer, channelId: pending.channelId });
+  setTimeout(() => resolvedAnswers.delete(messageTs), RESOLVED_ANSWER_TTL_MS);
 
-  // Confirm to the user on Slack that the answer was received
+  // Confirm to the user on Slack that the answer was received (in thread of the original question)
   web.chat.postMessage({
-    channel: channelId,
+    channel: pending.channelId,
     text: `✅ Your answer: ${answer}`,
+    thread_ts: messageTs,
     mrkdwn: true,
   }).catch((err) => {
     console.error("[Bolt] Failed to send confirmation message:", err);
   });
 
   return true;
+}
+
+/** Find the most recent pending question for a given channel. */
+function findLatestPendingForChannel(channelId: string): PendingQuestion | undefined {
+  let latest: PendingQuestion | undefined;
+  for (const pending of pendingQuestions.values()) {
+    if (pending.channelId === channelId) {
+      if (!latest || pending.createdAt > latest.createdAt) {
+        latest = pending;
+      }
+    }
+  }
+  return latest;
 }
 
 function formatSelected(labels: string[]): string {
@@ -216,8 +238,28 @@ boltApp.message(async ({ message }) => {
     return;
   }
 
-  const pending = pendingQuestions.get(msg.channel);
-  if (!pending || !msg.text) {
+  if (!msg.text) {
+    console.error("[Bolt] No text in message, skipping.");
+    return;
+  }
+
+  // Route reply to the correct pending question:
+  // 1. Thread reply (thread_ts set) → find question matching that thread_ts
+  // 2. Direct reply (no thread_ts) → find the most recent pending question in this channel
+  let pending: PendingQuestion | undefined;
+
+  if (msg.thread_ts) {
+    pending = pendingQuestions.get(msg.thread_ts);
+    if (pending) {
+      console.error("[Bolt] Matched thread reply to question:", msg.thread_ts);
+    }
+  }
+
+  if (!pending) {
+    pending = findLatestPendingForChannel(msg.channel);
+  }
+
+  if (!pending) {
     console.error("[Bolt] No pending question for channel:", msg.channel);
     return;
   }
@@ -233,7 +275,7 @@ boltApp.message(async ({ message }) => {
     // Otherwise pass through as freeform text
   }
 
-  resolvePending(msg.channel, answer);
+  resolvePending(pending.messageTs, answer);
 });
 
 // Single-select button click
@@ -241,16 +283,16 @@ boltApp.action(/^ask_slack_btn_\d+$/, async ({ body, ack }) => {
   await ack();
 
   const blockBody = body as BlockAction;
-  const channelId = blockBody.channel?.id;
-  if (!channelId) return;
+  const messageTs = (blockBody.message as { ts?: string } | undefined)?.ts;
+  if (!messageTs) return;
 
   const action = blockBody.actions[0];
   const selectedLabel =
     action.type === "button" ? (action as { value: string }).value : "";
 
   if (selectedLabel) {
-    console.error("[Bolt] Button clicked:", selectedLabel, "in channel:", channelId);
-    resolvePending(channelId, formatSelected([selectedLabel]));
+    console.error("[Bolt] Button clicked:", selectedLabel, "for question:", messageTs);
+    resolvePending(messageTs, formatSelected([selectedLabel]));
   }
 });
 
@@ -264,8 +306,8 @@ boltApp.action("ask_slack_submit", async ({ body, ack }) => {
   await ack();
 
   const blockBody = body as BlockAction;
-  const channelId = blockBody.channel?.id;
-  if (!channelId) return;
+  const messageTs = (blockBody.message as { ts?: string } | undefined)?.ts;
+  if (!messageTs) return;
 
   const stateValues = (
     blockBody.state as
@@ -282,40 +324,76 @@ boltApp.action("ask_slack_submit", async ({ body, ack }) => {
     return;
   }
 
-  console.error("[Bolt] Submit — selected:", selectedLabels, "in channel:", channelId);
-  resolvePending(channelId, formatSelected(selectedLabels));
+  console.error("[Bolt] Submit — selected:", selectedLabels, "for question:", messageTs);
+  resolvePending(messageTs, formatSelected(selectedLabels));
 });
 
 // --- Polling fallback ---
 // When Socket Mode dies silently, we poll conversations.history to pick up replies.
 
 async function pollForReplies(): Promise<void> {
-  for (const [channelId, pending] of pendingQuestions) {
+  // Group pending questions by channel to minimize API calls
+  const byChannel = new Map<string, PendingQuestion[]>();
+  for (const pending of pendingQuestions.values()) {
+    const list = byChannel.get(pending.channelId) ?? [];
+    list.push(pending);
+    byChannel.set(pending.channelId, list);
+  }
+
+  for (const [channelId, pendings] of byChannel) {
     try {
+      // Use the oldest pending question's messageTs as the starting point
+      const oldest = pendings.reduce(
+        (min, p) => (p.messageTs < min ? p.messageTs : min),
+        pendings[0].messageTs,
+      );
+
       const history = await web.conversations.history({
         channel: channelId,
-        oldest: pending.messageTs,
+        oldest,
         inclusive: false,
-        limit: 10,
+        limit: 20,
       });
 
       const messages = history.messages ?? [];
-      // Find the first human (non-bot) reply
       for (const msg of messages) {
         if ((msg as { bot_id?: string }).bot_id) continue;
         if ((msg as { subtype?: string }).subtype) continue;
         const text = (msg as { text?: string }).text;
         if (!text) continue;
 
+        const threadTs = (msg as { thread_ts?: string }).thread_ts;
+        let matched: PendingQuestion | undefined;
+
+        // Thread reply → match to specific question
+        if (threadTs) {
+          matched = pendings.find((p) => p.messageTs === threadTs);
+        }
+
+        // Direct reply → match to latest pending question in channel
+        if (!matched) {
+          matched = pendings.reduce(
+            (latest, p) =>
+              !latest || p.createdAt > latest.createdAt ? p : latest,
+            undefined as PendingQuestion | undefined,
+          );
+        }
+
+        if (!matched) continue;
+
         let answer = text;
-        if (pending.options && pending.options.length > 0) {
-          const parsed = tryParseNumberedReply(text, pending.options);
+        if (matched.options && matched.options.length > 0) {
+          const parsed = tryParseNumberedReply(text, matched.options);
           if (parsed) answer = parsed;
         }
 
-        console.error("[Poll] Found reply via polling for channel:", channelId, "answer:", answer);
-        resolvePending(channelId, answer);
-        break;
+        console.error("[Poll] Found reply for question:", matched.messageTs, "answer:", answer);
+        resolvePending(matched.messageTs, answer);
+
+        // Remove from local array so we don't double-match
+        const idx = pendings.indexOf(matched);
+        if (idx >= 0) pendings.splice(idx, 1);
+        if (pendings.length === 0) break;
       }
     } catch (err) {
       console.error("[Poll] Error polling channel", channelId, err);
@@ -365,7 +443,7 @@ export async function sendQuestionAndWait(
   options?: SlackQuestionOption[],
   multiSelect?: boolean,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<{ answer: string; questionId: string }> {
   const userId = slackUserId ?? process.env.SLACK_USER_ID;
   if (!userId) {
     throw new Error(
@@ -400,23 +478,27 @@ export async function sendQuestionAndWait(
 
   // Wait for response (text reply or interactive action) — no server-side timeout,
   // the client controls how long to wait via its own HTTP timeout.
+  const messageTs = sentResult.ts!;
   console.error(
-    `[Slack] Waiting for reply in channel ${channelId} (no timeout)`,
+    `[Slack] Waiting for reply to question ${messageTs} in channel ${channelId} (no timeout)`,
   );
 
   // Use a deferred promise so that if the HTTP client disconnects,
   // the pending question survives and can be picked up by /api/wait.
   const deferred = createDeferred();
-  pendingQuestions.set(channelId, {
+  pendingQuestions.set(messageTs, {
     deferred,
     options: hasOptions ? options : undefined,
     multiSelect,
-    messageTs: sentResult.ts!,
+    messageTs,
+    channelId,
+    createdAt: Date.now(),
   });
 
   ensurePolling();
 
-  return raceWithAbort(deferred.promise, signal);
+  const answer = await raceWithAbort(deferred.promise, signal);
+  return { answer, questionId: messageTs };
 }
 
 /**
@@ -425,8 +507,30 @@ export async function sendQuestionAndWait(
  */
 export async function waitForExistingQuestion(
   slackUserId?: string,
+  questionId?: string,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<{ answer: string; questionId: string }> {
+  // If a specific questionId is provided, look it up directly
+  if (questionId) {
+    const cached = resolvedAnswers.get(questionId);
+    if (cached !== undefined) {
+      resolvedAnswers.delete(questionId);
+      return { answer: cached.answer, questionId };
+    }
+
+    const pending = pendingQuestions.get(questionId);
+    if (!pending) {
+      throw new Error("No pending question found with this ID");
+    }
+
+    console.error(
+      `[Slack] Client reconnected — re-attaching to question ${questionId}`,
+    );
+    const answer = await raceWithAbort(pending.deferred.promise, signal);
+    return { answer, questionId };
+  }
+
+  // No questionId — find by channel (backward compatible)
   const userId = slackUserId ?? process.env.SLACK_USER_ID;
   if (!userId) {
     throw new Error(
@@ -437,20 +541,23 @@ export async function waitForExistingQuestion(
   const dmResult = await web.conversations.open({ users: userId });
   const channelId = (dmResult.channel as { id: string }).id;
 
-  // If the answer arrived between disconnect and reconnect, return it immediately
-  const cachedAnswer = resolvedAnswers.get(channelId);
-  if (cachedAnswer !== undefined) {
-    resolvedAnswers.delete(channelId);
-    return cachedAnswer;
+  // If the answer arrived between disconnect and reconnect, return the latest
+  for (const [msgTs, cached] of resolvedAnswers) {
+    if (cached.channelId === channelId) {
+      resolvedAnswers.delete(msgTs);
+      return { answer: cached.answer, questionId: msgTs };
+    }
   }
 
-  const pending = pendingQuestions.get(channelId);
+  // Find the latest pending question for this channel
+  const pending = findLatestPendingForChannel(channelId);
   if (!pending) {
     throw new Error("No pending question found for this user");
   }
 
   console.error(
-    `[Slack] Client reconnected — re-attaching to pending question in channel ${channelId}`,
+    `[Slack] Client reconnected — re-attaching to latest pending question ${pending.messageTs} in channel ${channelId}`,
   );
-  return raceWithAbort(pending.deferred.promise, signal);
+  const answer = await raceWithAbort(pending.deferred.promise, signal);
+  return { answer, questionId: pending.messageTs };
 }

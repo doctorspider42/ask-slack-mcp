@@ -95,7 +95,7 @@ const httpServer = http.createServer(async (req, res) => {
       const abortController = new AbortController();
       req.on("close", () => abortController.abort());
 
-      const answer = await sendQuestionAndWait(
+      const result = await sendQuestionAndWait(
         fullMessage,
         body.slack_user_id,
         slackOptions,
@@ -103,7 +103,7 @@ const httpServer = http.createServer(async (req, res) => {
         abortController.signal,
       );
 
-      sendJson(res, 200, { answer });
+      sendJson(res, 200, { answer: result.answer, question_id: result.questionId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[Server] Error handling /api/ask:", message);
@@ -125,17 +125,18 @@ const httpServer = http.createServer(async (req, res) => {
 
     try {
       const rawBody = await readBody(req);
-      const body = JSON.parse(rawBody) as { slack_user_id?: string };
+      const body = JSON.parse(rawBody) as { slack_user_id?: string; question_id?: string };
 
       const abortController = new AbortController();
       req.on("close", () => abortController.abort());
 
-      const answer = await waitForExistingQuestion(
+      const result = await waitForExistingQuestion(
         body.slack_user_id,
+        body.question_id,
         abortController.signal,
       );
 
-      sendJson(res, 200, { answer });
+      sendJson(res, 200, { answer: result.answer, question_id: result.questionId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[Server] Error handling /api/wait:", message);

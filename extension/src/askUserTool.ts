@@ -1,6 +1,17 @@
 import * as vscode from "vscode";
 import { AskSlackConfig, askViaSlackApiWithRetry } from "./slackApiClient";
 
+const runtimeGlobals = globalThis as typeof globalThis & {
+  crypto?: { randomUUID?: () => string };
+  setTimeout: (callback: () => void, delay: number) => unknown;
+  clearTimeout: (handle: unknown) => void;
+};
+
+function createResolveId(): string {
+  return runtimeGlobals.crypto?.randomUUID?.()
+    ?? `ask-slack-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 interface QuestionOption {
   label: string;
   description?: string;
@@ -109,7 +120,8 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
     return new Promise<string>(async (resolve, reject) => {
       let resolved = false;
       let slackPending: Promise<string> | undefined;
-      let slackTimer: ReturnType<typeof setTimeout> | undefined;
+      let slackTimer: unknown;
+      const carouselResolveId = createResolveId();
 
       const carouselCts = new vscode.CancellationTokenSource();
       token.onCancellationRequested(() => carouselCts.cancel());
@@ -117,7 +129,15 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
       const finish = (answer: string, source: "local" | "slack") => {
         if (resolved) return;
         resolved = true;
-        if (slackTimer) clearTimeout(slackTimer);
+        if (slackTimer) runtimeGlobals.clearTimeout(slackTimer);
+
+        if (source === "slack") {
+          void vscode.commands.executeCommand(
+            "workbench.action.chat.clearQuestionCarousel",
+            { resolveId: carouselResolveId },
+          );
+        }
+
         carouselCts.cancel();
         carouselCts.dispose();
         resolve(
@@ -128,7 +148,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
       const failWith = (err: Error) => {
         if (resolved) return;
         resolved = true;
-        if (slackTimer) clearTimeout(slackTimer);
+        if (slackTimer) runtimeGlobals.clearTimeout(slackTimer);
         carouselCts.cancel();
         carouselCts.dispose();
         reject(err);
@@ -220,6 +240,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
           "vscode_askQuestions",
           {
             input: {
+              resolveId: carouselResolveId,
               questions: [
                 {
                   header,
@@ -283,7 +304,7 @@ export class AskUserTool implements vscode.LanguageModelTool<AskUserInput> {
 
       // Slack fallback timer
       if (slackConfigured) {
-        slackTimer = setTimeout(() => {
+        slackTimer = runtimeGlobals.setTimeout(() => {
           sendToSlack();
         }, config.timeoutSeconds * 1000);
       }
